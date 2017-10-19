@@ -56,11 +56,11 @@ public class IntSet {
      * @param expected The expected number of elements.
      */
     public IntSet(final int expected) {
-        this(expected, 0.75F);
+        this(Integer.max(expected, 128), 0.75F);
     }
 
     public IntSet() {
-        this(16, 0.75F);
+        this(128, 0.75F);
     }
 
     private int realSize() {
@@ -131,6 +131,7 @@ public class IntSet {
     }
 
     private void rehash(final int newN) {
+        HillviewLogger.instance.info("Rehashed", "{0} to {1}", this.key.length, newN);
         final int[] key = this.key;
         final int mask = newN - 1;
         final int[] newKey = new int[newN + 1];

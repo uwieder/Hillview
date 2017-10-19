@@ -17,6 +17,7 @@
 
 package org.hillview.test;
 
+import org.hillview.utils.HashUtil;
 import org.hillview.utils.IntSet;
 import org.junit.Test;
 import static junit.framework.TestCase.assertEquals;

@@ -45,7 +45,10 @@ public class SparseMembership implements IMembershipSet {
                             final IntPredicate filter) {
         this.max = baseMap.getMax();
         final IRowIterator baseIterator = baseMap.getIterator();
-        this.membershipMap = new IntSet(this.estimateSize(baseMap, filter));
+        int esize = this.estimateSize(baseMap, filter);
+        if (esize < 10)
+            esize = this.estimateSize(baseMap, filter);
+        this.membershipMap = new IntSet(esize);
         int tmp = baseIterator.getNextRow();
         while (tmp >= 0) {
             if (filter.test(tmp))
