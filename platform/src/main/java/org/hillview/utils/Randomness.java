@@ -22,9 +22,8 @@ import org.apache.commons.math3.random.MersenneTwister;
 public class Randomness {
     final private MersenneTwister myPrg;
 
-    public Randomness(long seed) {
-        this.myPrg = new MersenneTwister(seed);
-    }
+
+    public Randomness(long seed) { this.myPrg = new MersenneTwister(seed); }
 
     public int nextInt() { return this.myPrg.nextInt(); }
 
@@ -45,12 +44,11 @@ public class Randomness {
     /**
      * @return the next pseudarandum Geometric with distribution parameter p. Should be more efficient than using logs.
      */
-    public int nextGeometric(double p) {
-        if (p <= 0) throw new IllegalArgumentException("parameter of Geometric Distribution must be positive");
-        double sample = myPrg.nextDouble();
+     public int nextGeometric(double p) {
+        int value = myPrg.nextInt();
+        double sample = (double) Math.abs(value) / Integer.MAX_VALUE;
         return (int) (Math.floor((Math.log(1 - sample) / Math.log(1-p) ) )) + 1;
     }
-
     /**
      * returns a long uniformly drawn between 0 (inclusive) and n (exclusive)
       */

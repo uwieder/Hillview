@@ -95,11 +95,12 @@ public class FullMembershipSet implements IMembershipSet {
     @Override
     public IRowIterator getIteratorOverSample(double rate, long seed, boolean enforceRate) {
         double effectiveRate;
-        if (enforceRate)
+       /* if (enforceRate)
             effectiveRate = rate;
         else
-            effectiveRate = computeRate(rate);
-        if (effectiveRate >= 1)
+            effectiveRate = computeRate(rate); */
+        //if (effectiveRate >= 1)
+        if (rate >= 1)
             return this.getIterator();
         else
             return new FullSampledRowIterator (rowCount, rate, seed);
