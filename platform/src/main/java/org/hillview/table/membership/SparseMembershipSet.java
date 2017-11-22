@@ -43,7 +43,7 @@ public class SparseMembershipSet implements IMembershipSet, IMutableMembershipSe
     }
 
     public SparseMembershipSet(int max, int estimated) {
-        this(new IntSet(estimated), max);
+        this(new IntSet(estimated, 0.95F), max);
     }
 
     public void add(int index) {
@@ -97,6 +97,7 @@ public class SparseMembershipSet implements IMembershipSet, IMutableMembershipSe
         return new SparseIterator(this.membershipMap);
     }
 
+    public double efficiency() { return (double) this.size() / (double) this.membershipMap.arraySize(); }
 
     /**
      * Returns an iterator that runs over the sampled data.

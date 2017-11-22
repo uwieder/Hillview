@@ -146,7 +146,7 @@ public interface IMembershipSet extends IRowOrder {
      * @return      True when the target column should be sparse.
      */
     default boolean useSparseColumn(int size) {
-        return this.getMax() > 3 * size;
+        return this.getMax() > 30 * size;
     }
 
     default boolean useSparseColumn() {

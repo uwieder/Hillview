@@ -228,16 +228,16 @@ public class IntSet {
         }
 
         public int getNext() {
-            if (!this.hasNext())
+       /*     if (!this.hasNext())
                 return -1;
-            --this.c;
-            if (this.mustReturnZero) {
-                this.mustReturnZero = false;
-                return 0;
-            }
+            --this.c; */
             while (--this.pos >= 0) {
                 if (IntSet.this.key[this.pos] != 0)
                     return IntSet.this.key[this.pos];
+            }
+            if (this.mustReturnZero) {
+                this.mustReturnZero = false;
+                return 0;
             }
             return -1;
         }
