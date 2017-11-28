@@ -38,7 +38,7 @@ public class FactoryBenchmark {
 
         PrintWriter writer = new PrintWriter("FactoryBenchmarkSparse", "UTF-8");
 
-        for (int skipSize = 30; skipSize < 100; skipSize += 10) {
+        for (int skipSize = 30; skipSize < 1000; skipSize += 20) {
             final DoubleArrayColumn col = HistogramBenchmark.generateDoubleArray(colSize, 100);
             ITable table = createSparseTable(colSize, col, skipSize);
             writer.print(skipSize + " , ");
@@ -57,6 +57,7 @@ public class FactoryBenchmark {
         SparseMembershipSet sMap = new SparseMembershipSet(colSize, colSize/skipSize);
         for (int i = 1; i < colSize; i += skipSize)
             sMap.add(i);
+        sMap.seal();
         List<IColumn> cols = new ArrayList<IColumn>();
         cols.add(col);
         System.out.println("efficiency: " + sMap.efficiency());

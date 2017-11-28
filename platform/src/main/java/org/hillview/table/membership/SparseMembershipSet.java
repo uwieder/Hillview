@@ -32,6 +32,7 @@ import org.hillview.utils.Randomness;
  */
 public class SparseMembershipSet implements IMembershipSet, IMutableMembershipSet {
     private final IntSet membershipMap;
+    private IntSet iteratorMap;
     private final int max;
 
     @Override
@@ -40,6 +41,7 @@ public class SparseMembershipSet implements IMembershipSet, IMutableMembershipSe
     private SparseMembershipSet(IntSet map, int max) {
         this.membershipMap = map;
         this.max = max;
+        this.iteratorMap = this.membershipMap;
     }
 
     public SparseMembershipSet(int max, int estimated) {
@@ -60,9 +62,11 @@ public class SparseMembershipSet implements IMembershipSet, IMutableMembershipSe
         for (int i = 0; i < size; i++)
             this.membershipMap.add(start + i);
         this.max = max;
+        this.iteratorMap = this.membershipMap;
     }
 
     public IMembershipSet seal() {
+        this.iteratorMap = this.membershipMap.copySorted();
         return this;
     }
 
@@ -94,7 +98,7 @@ public class SparseMembershipSet implements IMembershipSet, IMutableMembershipSe
 
     @Override
     public IRowIterator getIterator() {
-        return new SparseIterator(this.membershipMap);
+        return new SparseIterator(this.iteratorMap);
     }
 
     public double efficiency() { return (double) this.size() / (double) this.membershipMap.arraySize(); }
@@ -155,6 +159,7 @@ public class SparseMembershipSet implements IMembershipSet, IMutableMembershipSe
         final private IntSet.IntSetIterator mySetIterator;
 
         private SparseIterator(final IntSet mySet) {
+           // this.mySetIterator = mySet.copySorted().getIterator();
             this.mySetIterator = mySet.getIterator();
         }
 

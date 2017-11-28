@@ -18,6 +18,8 @@
 package org.hillview.utils;
 
 
+import java.util.Arrays;
+
 /**
  * A set of integers.
  * A simplified version of IntOpenHash from fastutil http://fastutil.di.unimi.it
@@ -177,6 +179,23 @@ public class IntSet {
         return newSet;
     }
 
+    /**
+     * @return a deep sorted copy of IntSet
+     */
+    public IntSet copySorted() {
+        final IntSet newSet = new IntSet(1, this.f);
+        newSet.n = this.n;
+        newSet.mask = this.mask;
+        newSet.maxFill = this.maxFill;
+        newSet.size = this.size;
+        newSet.containsZero = this.containsZero;
+        newSet.key = new int[this.n + 1];
+        System.arraycopy(this.key, 0, newSet.key, 0, this.key.length);
+        Arrays.sort(newSet.key);
+        return newSet;
+    }
+
+
     public int arraySize() { return this.key.length; }
 
     /**
@@ -228,9 +247,9 @@ public class IntSet {
         }
 
         public int getNext() {
-       /*     if (!this.hasNext())
+            if (!this.hasNext())
                 return -1;
-            --this.c; */
+            --this.c;
             while (--this.pos >= 0) {
                 if (IntSet.this.key[this.pos] != 0)
                     return IntSet.this.key[this.pos];
