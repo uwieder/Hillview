@@ -3,13 +3,15 @@
 [Hillview](https://github.com/vmware/hillview) is a simple cloud-based
 spreadsheet program for browsing large data collections.  Currently
 the data manipulated is read-only.  Users can sort, find, filter,
-transform, query, and chart data in some simple ways; several
+transform, query, and chart data in simple ways;
 operations are performed easily using direct manipulation in the GUI.
 Hillview is designed to work on very large data sets (billions of
-rows), complementing tools such as Excel.
+rows), with an interactive spreadsheet-like interaction style, complementing sophisticated analytic engines.  Hillview can also be
+executed as a stand-alone executable on a local machine, but then the
+data size it can manipulate is limited by the available machine
+resources.
 
-Hillview attempts to provide fast data manipulation.  The illusion of
-fast manipulation is provided by deferring work: Hillview only
+Hillview attempts to provide fast data manipulation.  The speed is obtained by deferring work: Hillview only
 computes as much of the data as must be shown to the user.  For
 example, when sorting a dataset, it only sorts the rows currently
 visible on the screen.  Hillview performs all operations using a class
@@ -18,7 +20,7 @@ to compute with bounded memory over distributed data.
 
 ## System architecture
 
-The spreadsheet is a three-tier system, as shown in the following figure:
+The tool is a three-tier system, as shown in the following figure:
 
 ![System architecture](system-architecture.png)
 
@@ -56,7 +58,7 @@ currently-executing operation.
 ## Data model
 
 The Hillview data model is a large table, with a relatively small
-number of columns (tens) and many rows (millions to billions).
+number of columns (currently tens but would increase to hundreds soon) and many rows (millions to billions).
 
 The data in each column is typed; Hillview supports the following data
 types:
@@ -76,31 +78,153 @@ value is not present.  This is similar to NULL values in databases.
 In this section we describe the various ways to present and interact
 with the data.
 
-### Loading data sets
+## Error display
+
+Some operations can trigger errors.  For example, the attempt to load
+a non-existent file.  These errors usually manifest as Java exceptions
+in the backend.  Today the Hillview front-end captures these
+exceptions and displays them on the screen.  We are working to improve
+the usability of error messages.
+
+![Error displayed by Hillview](exception.png)
+
+## Mouse-based selection
+
+Several views allow the user to use the mouse to select data.
+Selections can be modified using the keyboard as follows:
+
+* Clicking on an element will select it and will unselect all other
+  selected elements.
+
+* Clicking while pressing shift button will select or unselect a whole
+  range of contiguous elements.
+
+* Clicking while pressing the control button
+  will toggle the selection of the current element
+
+### Loading data
 
 Hillview supports reading data from multiple data-sources.
 
-*TODO*
+When the program starts the user is presented with a Load menu.
 
-The final UI for loading datasets is not yet implemented.  Currently
-this UI consists in some buttons that load pre-defined datasets.
+![Load menu](load-menu.png)
+
+The load menu allows the user to specify a dataset to load from
+storage.
+
+* System logs: when this option is selected Hillview loads the logs
+  produced by the Hillview system itself as a table with 9 columns.
+  This is mostly useful to debug the performance of the Hillview
+  system itself.
+
+* CSV files: allows the user to [read data from a set of CSV
+  files](#reading-csv-files).
+
+* DB tables: allows the user to [read data from a set of federated
+  databases](#reading-data-from-sql-databases).
+
+After the data loading is initiated the user will be presented with a
+view of the loaded table.  If the table has relatively few columns,
+the user is shown directly a [Tabular view](#table-views).  Otherwise
+the user is shown a [Schema view](#data-schema-views), which can be
+used to select a smaller set of columns to browse.
 
 #### Reading CSV files
 
-Hillview can read data from comma- or tab-separated files.
+Hillview can read data from comma- or tab-separated files. The
+following menu allows the users to specify the files to load.  *The
+files must be resident on the same machines where the Hillview service
+is deployed*.
 
-*TODO*
+![Specifying CSV files](csv-menu.png)
+
+* Folder: Folder containing the files to load.
+
+* File name pattern: A shell expansion pattern that names the files to
+  load.  Multiple files may be loaded on each machine.
+
+* Schema file: An optional file in JSON format that describes the
+  schema of the data.  In the absence of a schema file Hillview loads
+  all columns as strings.
+
+* Header row: select this option if the first row in each CSV file is
+  a header row; the first row is used to generate names for the
+  columns in the absence of a schema.  If a schema is supplied the
+  first row is just ignored.
+
+All the CSV files must have the same schema (and the same number of
+columns).  CSV files may be compressed.  CSV fields may be quoted
+using double quotes, and then they may contain newlines.  An empty
+field (contained between two consecutive commas, or between a comma
+and a newline) is translated to a 'missing' data value.
+
+The following is an example of a schema specification in JSON for a
+table with 2 columns.
+
+```JSON
+[{
+    "name": "DayOfWeek"
+    "kind": "Integer",
+    "allowMissing": true
+}, {
+    "name": "FlightDate"
+    "kind": "Date",
+    "allowMissing": false
+}]
+```
+
+The schema is an array of JSON objects each describing a column.  A
+column description has three fields:
+
+* name: A string describing the column name.  All column names in a
+  schema must be unique.
+
+* allowMissing: A Boolean value which indicates whether the column can
+  contain 'missing' values.
+
+* kind: A string describing the type of data in the column,
+  corresponding to the types in the [data model](#data-model).  The
+  kind is one of: "String", "Category", "JSON", "Double", "Integer",
+  "Date", and "Interval".
 
 #### Reading data from SQL databases
 
-Hillview can read data from one or many SQL databases (any database
-that supports the JDBC standard for reading).
+The following menu allows the user to load data from a set of
+federated databases that are exposed as a JDBC service.  *Each worker
+machine in the cluster will attempt to connect to the database
+independently.* This works best when a separate database server is
+deployed on each local Hillview machine hosting a worker.
+
+Currently there is no way to load data from a single external database
+when Hillview is deployed as a cloud service; however, data can be
+loaded from a database when Hillview is deployed as a service running
+on the local user machine.
+
+The following menu allows the user to specify the data to load.
+
+![Specifying database connections](db-menu.png)
+
+* database kind: A drop-down menu indicating the kind of database to
+  load data from (e.g., MySQL).
+
+* host: The network name of a machine hosting the database.  *TODO*
+  this should be a pattern enabling each worker to specify a different
+  machine.
+
+* port: The network port where the database service is listening.
+
+* database: The database to load data from.
+
+* table: The table to load data from.
+
+* user: The name of the user connecting to the database.
+
+* password: Credentials of the user connecting to the database.
 
 Numeric values are converted either to integers (if they fit into
 32-bits) or to doubles.  Boolean values are read as categories
 containing two values, "true" and "false".
-
-*TODO*
 
 #### Reading data from Parquet files and Impala databases
 
@@ -128,18 +252,32 @@ the views.
 Each view has a heading that describes it briefly, as shown in the
 following figure.  Each view has a unique number, shown on the
 top-right.  The lineage of views is usually shown in the title,
-allowing users to navigate from a view to the source view, where it
-generated from.  Views can also be closed by clicking the button
+allowing users to navigate from a view to the source view from which it
+was generated.  Views can also be closed by clicking the button
 marked with x.
 
 ![View heading](view-heading.png)
 
 ### Data schema views
 
-The data schema views allows users to browse and select a the set of
-columns from the dataset to focus on.
+The data schema views allow users to browse the schema of the current
+table and select a set of columns from the dataset to focus on.
 
-*TODO*
+The following example shows a schema view; the rows in a schema view
+are the description of the columns of the data table.  In this example
+there are three rows selected.
+
+![Schema view](schema-view.png)
+
+Once the user selects a set of columns, the user can display a view of the
+data table restricted to the selected columns using the View/Selected
+columns menu.
+
+
+![Schema view menu](schema-view-menu.png)
+
+* Selected columns: this displays a [table view](#table-views) of the
+data restricted to the selected columns.
 
 ### Table views
 
@@ -169,7 +307,7 @@ sorted as follows:
   UniqueCarrier columns, they are next ordered by their value in the
   Cancelled column, also in decreasing order.
 
-This display is equivalent with the output of the following SQL query:
+This display is equivalent to the output of the following SQL query:
 
 ```SQL
 SELECT COUNT(*), Origin, UniqueCarrier, Cancelled FROM data
@@ -180,6 +318,11 @@ LIMIT 0, 19
 
 Initially a table view displays no columns.  The user can choose which
 columns are displayed or hidden.
+
+Missing values are shown with a different color.  When sorting missing
+values are considered larger than any other value.
+
+![Missing value display](missing-value.png)
 
 In the tabular display a visible row can correspond to multiple rows
 in the original dataset.  For example, in this figure, the first
@@ -195,7 +338,7 @@ The first column, labeled (position) indicates with a horizontal
 scroll-bar where in the sorted order the current displayed row
 resides.  In this figure the first row is at the beginning of the
 sorted order (the dark bar is at the very left).  The second column,
-labeled (count) indicates how many row in the dataset correspond to
+labeled (count) indicates how many rows in the dataset correspond to
 the displayed row.  The scroll-bar also indicates what percentage of
 the whole dataset is covered by this row; in this case we can see that
 this row covers about 9% of the data.  You can see that, although the
@@ -232,15 +375,9 @@ into view a set of rows that includes the requested quantile.
 
 #### Selecting columns
 
-The user can select one or more column using the mouse:
-* Clicking on a column will select the column
-* Clicking while pressing shift button will select a range of
-  contiguous columns
-* Clicking while pressing the control button will add or remove the
-  current column from the selection
-
-The following image shows the header of a table with 6 selected
-columns.
+The user can [select](#mouse-based-selection) one or more column using
+the mouse.  The following image shows the header of a table with 6
+selected columns.
 
 ![A table header with multiple selected columns](selected-columns-header.png)
 
@@ -273,9 +410,13 @@ the current state of the display.
   the sort order in descending order.
 
 * Heatmap: this option requires exactly two or three columns of
-  suitable types to be selected; in this case, it will draw a heatmap
-  plot of the data in these columns.  For Heatmaps see [Heat-map
-  views](#heatmap-views).
+  suitable types to be selected.  When two columns are selected this
+  will display the data in these columns as a [Heat-map
+  view](#heatmap-views).  When three columns are selected the
+  following menu allows the user to configure the data to display as a
+  [Trellis plot view](#trellis-plot-views).
+
+  ![Heatmap array menu](heatmap-array-menu.png)
 
 * Histogram: this option requires exactly one or two columns of
   suitable types to be selected.  If one column is selected, this
@@ -290,13 +431,14 @@ the current state of the display.
 * Heavy hitters...: This will initiate a heavy hitters computation on
   the selected columns; this computation finds the most frequent
   values that appear in the selected columns.  The user is presented
-  with a dialog for describing the parameters of the heavy hitters
+  with a dialog requesting the threshold parameter for the heavy hitters
   computation.
 
   ![Heavy hitters menu](heavy-hitters-menu.png)
 
   The user has to specify a percentage, between .1 (1/1000 of the
-  data) and 100 (the whole data).  The result is shown in a [heavy
+  data) and 100 (the whole data).  The result is all items whose frequency
+  in the selected columns is above the threshold. the result is shown in a [heavy
   hitter view](#heavy-hitter-views).
 
 * Filter...: this option will pop-up a dialog window that allows the user
@@ -311,7 +453,7 @@ the current state of the display.
   Analysis](https://en.wikipedia.org/wiki/Principal_component_analysis)
   is a method to project data in a high-dimensional space to a
   lower-dimensional space while preserving as much of the "shape" of
-  the data.  The must have selected a set of columns containing
+  the data.  The user must have selected a set of columns containing
   numerical data.  The number of columns is the original dimension of
   the data.
 
@@ -343,7 +485,19 @@ the current state of the display.
   conversion a new column is appended to the table, containing the
   converted data.
 
+#### Operations on a table cell
+
+The user can also right-click on a cell in a visible column to pop-up
+a menu allowing filtering based on values; the menu permits to
+keep/eliminate all rows that have the specified value in the selected
+column.
+
+![Cell filtering context menu](filter-context-menu.png)
+
 #### Operations on tables
+
+The tabular display has a "view" menu that offers the following
+operations:
 
 ![View menu](table-view-menu.png)
 
@@ -358,6 +512,10 @@ the current state of the display.
 
 * No columns: all columns will be hidden.
 
+* Schema: displays [the table schema](#data-schema-views).
+
+For a description of the combine menu see [combining two views](#combining-two-views).
+
 ### Heavy hitter views
 
 A heavy hitters view shows the most frequent values that appear in the
@@ -368,7 +526,7 @@ threshold).
 
 The data is sorted in decreasing order of frequency.  Each row
 displays a combination of values and its count and relative frequency
-within the dataset.  A special that may appear is "Everything else",
+within the dataset.  A special value that may appear is "Everything else",
 which indicates the estimated number of rows that do not appear
 frequently enough to be above the chosen threshold.
 
@@ -394,7 +552,7 @@ description of categorical histograms.  A histogram is computed in two
 phases:
 
 - first the range of the data in the column is computed (minimum and
-  maximum values)
+  maximum values).
 
 - the range is divided into a small number of equal buckets.  Then the
   data is scanned and the number of points in the column that fall in
@@ -412,7 +570,7 @@ itself, as a number.
 
 ![A one dimensional histogram](hillview-histogram.png)
 
-On top of each bar is shown the size of the bar.  If the size is only
+A number on top of each bar indicates the size of the bar.  If the size is only
 approximately the value is shown with an approximation sign: &asymp;.
 
 The thin blue line shown is the cumulative distribution function
@@ -445,6 +603,8 @@ The "View" menu from a histogram display has the following functions:
   the display to a [two-dimensional
   histogram](#two-dimensional-histogram-views)
 
+For a description of the combine menu see [combining two views](#combining-two-views).
+
 #### Mouse selection in histogram views
 
 The mouse can be used to select a portion of the data in a histogram.
@@ -457,7 +617,7 @@ When the user releases the mouse button the selection takes place.
 The selection can be cancelled by pressing the ESC key.  The selection
 can be complemented by pressing the CONTROL at the time the selection
 is released (this will eliminate all the data that has been
-selected).q
+selected).
 
 #### Categorical histograms
 
@@ -486,6 +646,12 @@ distribution in a second column.
 
 ![A two-dimensional histogram](hillview-histogram2d.png)
 
+Next to the mouse an overlay box displays four different values:
+* the mouse's position on the X axis
+* the mouse's position on the Y axis
+* the range of values corresponding to the bar where the mouse is placed
+* the size of the bar (the number of rows corresponding to the bar)
+
 For example, in this figure we see a 2D histogram where the X axis has
 the airline carriers.  For each carrier the bar is divided into
 sub-bars, each of which corresponding to a range of departure delays.
@@ -496,7 +662,7 @@ The handling of missing values is as follows:
 * The count of rows values that have a missing value for the X axis is
 shown at the bottom.
 
-* For each bucket a transparent rectangle with is used for the missing
+* For each bucket a transparent rectangle is used for the missing
   data.  The following image shows a 2D histogram where some buckets
   contain missing data.
 
@@ -528,6 +694,8 @@ following image.
 
 ![A normalized two-dimensional histogram](hillview-histogram-normalized.png)
 
+For a description of the combine menu see [combining two views](#combining-two-views).
+
 #### Selection in 2D histograms
 
 In a 2D histogram users can select data in two ways:
@@ -553,8 +721,8 @@ pixels wide and the number of data points that falls within each patch
 is counted.  The number of values that falls within each patch is
 displayed as a heatmap, where the color intensity indicates the number
 of points.  A heatmap where the Y axis is not categorical will also
-display a line that gives the best linear regression between the
-values in the two columns.
+display a line that gives the best [linear regression](https://en.wikipedia.org/wiki/Linear_regression).
+between the values in the two columns.
 
 *TODO* discuss missing values.
 
@@ -581,6 +749,8 @@ The heatmap view menu has the following operations:
   of the data in the two columns that are used for the heatmap
   display.
 
+For a description of the combine menu see [combining two views](#combining-two-views).
+
 #### Selection from a heatmap
 
 Users can select a rectangular area from a heatmap with the mouse.
@@ -591,13 +761,18 @@ Users can select a rectangular area from a heatmap with the mouse.
 
 ![An array of heatmap views](hillview-heatmap-array.png)
 
-*TODO*
+A Trellis plot is an array of heatmaps, grouped by a third column, which
+currently is restricted to be a categorical column.
+Each heatmap is comprised of the rows that have a specific value in the third (categorical)
+column.
+
+*TODO* discuss missing values
 
 ### Combining two views
 
 Any view represents logically a subset of rows from an original table.
 Two different views can be combined by performing a set operation
-between the rows that they represent.  This done using the "Combine"
+between the rows that they represent.  This is done using the "Combine"
 menu, which is present in almost all views.
 
 ![Combining two views](combine-menu.png)
@@ -621,13 +796,12 @@ The operations are as follows:
 
 ### LAMP projection
 
-(This is an experimental feature, which currently is be too slow to
+(This is an experimental feature, which currently is too slow to
 apply to large datasets.)  This is another method to project a
 high-dimensional space to a low-dimensional space, called local affine
-multidimensional projection.  This is based on the paper [Local Affine
-Multidimensional
-Projection](http://ieeexplore.ieee.org/document/6065024/) from IEEE
-Transactions on Visualization and Computer Graphics, vol 17, issue 12,
+multidimensional projection.  This is based on the paper
+[Local Affine Multidimensional Projection](http://ieeexplore.ieee.org/document/6065024/)
+from IEEE Transactions on Visualization and Computer Graphics, vol 17, issue 12,
 Dec 2011, by Paulo Joia, Danilo Coimbra, Jose A Cuminato, Fernando V
 Paulovich, and Luis G Nonato.
 
@@ -636,19 +810,49 @@ user can interactively guide the projection.  This always projects the
 set of selected columns down to 2 dimensions and plots the result as a
 heatmap.
 
-This menu below allows the user to choose parameters of the
+The menu below allows the user to choose parameters of the
 projection.
 
   ![LAMP menu](lamp-menu.png)
 
-The users is presented with a set of control-points which can be moved
-around to guide the projection.  A typical projection is shown in the
-following figure:
+The meaning of the parameters is as follows:
+
+* Control-point selection: control points can be chosen either
+  - by sampling a random set of rows from the table
+  - by choosing as control points a representative for each value in a categorical column
+
+* Number of control points: if the control points are selected by
+  randomly sampling from the table this number indicates the number of
+  control points produced.
+
+* Category for centroids: the user must select a categorical column
+  from the drop-down menu.  For each value in this column the average
+  of all points in the selected columns will be used as a control
+  point.
+
+* Control point projection: currently only MDS (multi-dimensional
+  scaling) is a possible choice.
+
+After the LAMP projection is displayed, users are presented with a set
+of control-points which can be moved around to guide the projection;
+these are shown as green circles.  A typical projection is shown in
+the following figure:
 
   ![LAMP projection](lamp-projection.png)
 
-*TODO*
+The "View" menu offers the following options:
 
   ![LAMP view menu](lamp-view-menu.png)
 
-*TODO*
+* refresh: redraws the image.
+
+* update ranges: recalculates the min/max range of the heatmap display
+  to fit the data entirely.  When moving the handles the data range
+  can expand or shrink.
+
+* table: show a tabular view of the data represented in the LAMP view.
+
+* 3D heat map: selecting this option opens a new menu which allows the
+  user to make a [Trellis plot](#trellis-plot-views) of the
+  two-dimensional data produced by the projection, by grouping all
+  points that belong to a categorical value.

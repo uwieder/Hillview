@@ -101,9 +101,9 @@ th, td {
 
 /* close button */
 .close {
-    float: right;
-    font-size: 28px;
+    font-size: 20px;
     font-weight: bold;
+    color: red;
     cursor: pointer;
 }
 
@@ -143,12 +143,9 @@ th, td {
 
 .dialog {
     position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
     margin: auto;
-    padding: 8px;
-    border-radius: 10px;
+    padding: 5px;
+    border-radius: 5px;
     border: 1px solid black;
     width: auto;
     height: auto;
@@ -177,6 +174,16 @@ th, td {
 .dialog .confirm {
     display: inline-block;
     float: right;
+}
+
+/* Prevent user selection */
+.noselect {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
 .dialog .cancel {
@@ -213,15 +220,10 @@ svg.dataRange {
     width: 100px;
     height: 10px;
     display: inline-block;
-    background: rgb(220, 220, 220);
 }
 
 svg.dataRange > g {
     transform: scale(100, 10);
-}
-
-svg.dataRange > g > rect {
-    fill: black;
 }
 
 textarea:focus, input:focus{

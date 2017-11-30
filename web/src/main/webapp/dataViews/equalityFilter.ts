@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-import {ColumnDescription} from "./tableData";
-import {Dialog} from "./ui/dialog"
-import {Converters} from "./util";
+import {ColumnDescription} from "../javaBridge";
+import {Dialog, FieldKind} from "../ui/dialog"
+import {Converters} from "../util";
 
 /**
  * Describes the a filter that checks for (in)equality.
@@ -39,9 +39,11 @@ export class EqualityFilterDescription {
 
 export class EqualityFilterDialog extends Dialog {
     constructor(private columnDescription: ColumnDescription) {
-        super("Filter on " + columnDescription.name);
-        this.addTextField("query", "Find:", columnDescription.kind);
-        this.addSelectField("complement", "Check for:", ["Equality", "Inequality"]);
+        super("Filter on " + columnDescription.name, "Eliminates data from a column according to its value.");
+        this.addTextField("query", "Find:", FieldKind.String, null, "Value to search");
+        this.addSelectField("complement", "Check for:", ["Equality", "Inequality"], null,
+            "For 'equality' the search will keep all values that are equal to the one chosen," +
+        "For 'inequality' the search will keep all values that are different from the one chosen.");
     }
 
     public getFilter(): EqualityFilterDescription {

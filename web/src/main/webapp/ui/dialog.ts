@@ -15,18 +15,27 @@
  * limitations under the License.
  */
 
-import {IHtmlElement, KeyCodes} from "./ui"
-import {ContentsKind} from "../tableData"
+import {d3} from "./d3-modules";
+import {IHtmlElement, KeyCodes, Point} from "./ui"
+import {EditBox} from "./editBox";
+
+export enum FieldKind {
+    String,
+    Integer,
+    Double,
+    Boolean,
+    Password
+}
 
 /**
  *  Represents a field in the dialog.
  */
 export class DialogField {
-    html: HTMLSelectElement | HTMLInputElement;
+    html: HTMLSelectElement | HTMLInputElement | EditBox;
     /**
      * Optional kind of data expected to be input by the user.
      */
-    type?: ContentsKind;
+    type?: FieldKind;
 }
 
 /**
@@ -34,25 +43,42 @@ export class DialogField {
  * A dialog asks the user to fill in values for a set of fields.
  */
 export class Dialog implements IHtmlElement {
+    private tabIndex: number;
     private container: HTMLDivElement;
+    /**
+     * The fieldsDiv is a div that contains all the form fields.
+     */
     private fieldsDiv: HTMLDivElement;
     /**
      * Method to be invoked when dialog is closed with OK.
      */
-    public onConfirm: () => void;
+    onConfirm: () => void;
     /**
      * Stores the input elements and (optionally) their types.
      */
     private fields: Map<string, DialogField> = new Map<string, DialogField>();
+    /**
+     * Maps a field name to the fieldsDiv that contains all the corresponding visual elements.
+     */
+    private line: Map<string, HTMLElement> = new Map<string, HTMLElement>();
     private confirmButton: HTMLButtonElement;
+    private dragMousePosition: Point;
+    private dialogPosition: ClientRect;
 
     /**
      * Create a dialog with the given name.
+     * @param title; header to show on top of the dialog.
+     * @param toolTip: help message to display on mouseover.
      */
-    constructor(title: string) {
+    constructor(title: string, toolTip: string) {
+        this.tabIndex = 0;
         this.onConfirm = null;
         this.container = document.createElement("div");
+        this.container.title = toolTip;
         this.container.classList.add('dialog');
+        this.container.style.left = "50%";
+        this.container.style.top = "50%";
+        this.container.style.transform = "translate(-50%, -50%)";
 
         let titleElement = document.createElement("h1");
         titleElement.textContent = title;
@@ -63,7 +89,6 @@ export class Dialog implements IHtmlElement {
 
         let buttonsDiv = document.createElement("div");
         this.container.appendChild(buttonsDiv);
-        buttonsDiv.classList.add('cancelconfirm');
 
         let cancelButton = document.createElement("button");
         cancelButton.onclick = () => this.cancelAction();
@@ -75,6 +100,31 @@ export class Dialog implements IHtmlElement {
         this.confirmButton.textContent = "Confirm";
         this.confirmButton.classList.add("confirm");
         buttonsDiv.appendChild(this.confirmButton);
+
+        let drag = d3.drag()
+            .on("start", () => this.dragStart())
+            .on("end", () => this.dragEnd())
+            .on("drag", () => this.dragMove());
+        d3.select(this.container).call(drag);
+    }
+
+    dragStart(): void {
+        this.dragMousePosition = { x: d3.event.x, y: d3.event.y };
+        this.dialogPosition = this.container.getBoundingClientRect();
+        this.container.style.transform = "";
+        this.container.style.cursor = "move";
+        this.dragMove();  // put it in the right place; changing the transform may move it.
+    }
+
+    dragMove(): void {
+        let dx = this.dragMousePosition.x - d3.event.x;
+        let dy = this.dragMousePosition.y - d3.event.y;
+        this.container.style.left = (this.dialogPosition.left - dx).toString() + "px";
+        this.container.style.top = (this.dialogPosition.top - dy).toString() + "px";
+    }
+
+    dragEnd(): void {
+        this.container.style.cursor = "default";
     }
 
     protected handleKeypress(ev: KeyboardEvent): void {
@@ -124,34 +174,87 @@ export class Dialog implements IHtmlElement {
         return this.container;
     }
 
-    /**
-     * Add a text field with the given internal name, label, and data type.
-     * @param fieldName: Internal name. Has to be used when parsing the input.
-     * @param labelText: Text in the dialog for this field.
-     * @param type: Data type of this field. For now, only Integer is special.
-     * @param value: Initial default value.
-     */
-    public addTextField(fieldName: string, labelText: string, type: ContentsKind, value?: string): void {
+    createRowContainer(fieldName: string, labelText: string, toolTip: string): HTMLDivElement {
         let fieldDiv = document.createElement("div");
+        fieldDiv.style.display = "flex";
+        fieldDiv.style.alignItems = "center";
+        fieldDiv.title = toolTip;
         this.fieldsDiv.appendChild(fieldDiv);
 
         let label = document.createElement("label");
         label.textContent = labelText;
-        label.style.verticalAlign = "center";
         fieldDiv.appendChild(label);
+        this.line.set(fieldName, fieldDiv);
+        return fieldDiv;
+    }
 
+    /**
+     * Add a text field with the given internal name, label, and data type.
+     * @param fieldName: Internal name. Has to be used when parsing the input.
+     * @param labelText: Text in the dialog for this field.
+     * @param type: Data type of this field.
+     * @param value: Initial default value.
+     * @param toolTip:  Help message to show as a tool-tip.
+     * @return       The input element created for the user to type the text.
+     */
+    public addTextField(fieldName: string, labelText: string,
+                        type: FieldKind, value: string,
+                        toolTip: string): HTMLInputElement {
+        let fieldDiv = this.createRowContainer(fieldName, labelText, toolTip);
         let input: HTMLInputElement = document.createElement("input");
+        input.tabIndex = this.tabIndex++;
+        input.style.flexGrow = "100";
         fieldDiv.appendChild(input);
-        fieldDiv.style.verticalAlign = "center";
-        if (type == "Integer") {
+        if (type == FieldKind.Integer)
             input.type = "number";
-        }
-        if (type == "Integer" || type == "Double")
-            input.width = "3em";
+        if (type == FieldKind.Password)
+            input.type = "password";
 
         this.fields.set(fieldName, {html: input, type: type});
         if (value != null)
-            this.fields.get(fieldName).html.value = value;
+            input.value = value;
+        return input;
+    }
+
+    /**
+     * Add a multi-line text field with the given internal name, label, and data type.
+     * @param fieldName: Internal name. Has to be used when parsing the input.
+     * @param labelText: Text in the dialog for this field.
+     * @param value: Initial default value.
+     * @param toolTip:  Help message to show as a tool-tip.
+     */
+    public addMultiLineTextField(fieldName: string, labelText: string,
+                                 value: string, toolTip: string): void {
+        let fieldDiv = this.createRowContainer(fieldName, labelText, toolTip);
+        let input = new EditBox();
+        input.setTabIndex(this.tabIndex++);
+        fieldDiv.appendChild(input.getHTMLRepresentation());
+
+        this.fields.set(fieldName, {html: input});
+        if (value != null)
+            input.value = value;
+    }
+
+    /**
+     * Add a text field with the given internal name, label, and data type.
+     * @param fieldName: Internal name. Has to be used when parsing the input.
+     * @param labelText: Text in the dialog for this field.
+     * @param value: Initial default value.
+     * @param toolTip:  Help message to show as a tool-tip.
+     * @return       The input element created for the user to type the text.
+     */
+    public addBooleanField(fieldName: string, labelText: string,
+                           value: boolean, toolTip: string): HTMLInputElement {
+        let fieldDiv = this.createRowContainer(fieldName, labelText, toolTip);
+        let input: HTMLInputElement = document.createElement("input");
+        input.tabIndex = this.tabIndex++;
+        input.type = "checkbox";
+        input.style.flexGrow = "100";
+        fieldDiv.appendChild(input);
+        this.fields.set(fieldName, {html: input});
+        if (value != null && value)
+            input.checked = true;
+        return input;
     }
 
     /**
@@ -160,16 +263,16 @@ export class Dialog implements IHtmlElement {
      * @param labelText: Text in the dialog for this field.
      * @param options: List of strings that are the options in the selection box.
      * @param value: Initial default value.
+     * @param toolTip:  Help message to show as a tool-tip.
+     * @return       A reference to the select html select field.
      */
-    public addSelectField(fieldName: string, labelText: string, options: string[], value?: string): void {
-        let fieldDiv = document.createElement("div");
-        this.fieldsDiv.appendChild(fieldDiv);
-
-        let label = document.createElement("label");
-        label.textContent = labelText;
-        fieldDiv.appendChild(label);
-
+    public addSelectField(fieldName: string, labelText: string,
+                          options: string[], value: string,
+                          toolTip: string): HTMLSelectElement {
+        let fieldDiv = this.createRowContainer(fieldName, labelText, toolTip);
         let select = document.createElement("select");
+        select.tabIndex = this.tabIndex++;
+        select.style.flexGrow = "100";
         fieldDiv.appendChild(select);
         options.forEach(option => {
             let optionElement = document.createElement("option");
@@ -189,9 +292,25 @@ export class Dialog implements IHtmlElement {
             if (i == options.length)
                 throw new Error(`Given default value ${value} not found in options.`);
         }
-        this.fields.set(fieldName, {html: select});
+        this.fields.set(fieldName, {html: select, type: FieldKind.String });
         if (value != null)
-            this.fields.get(fieldName).html.value = value;
+            select.value = value;
+        return select;
+    }
+
+    /**
+     * Make the specified field visible or invisible.
+     * @param {string} labelText   Label associated to the field.
+     * @param {boolean} show       If true show the field, else hide it.
+     */
+    public showField(labelText: string, show: boolean): void {
+        let fieldDiv = this.line.get(labelText);
+        if (fieldDiv == null)
+            return;
+        if (show)
+            fieldDiv.style.display = "flex";
+        else
+            fieldDiv.style.display = "none";
     }
 
     /**
@@ -201,6 +320,24 @@ export class Dialog implements IHtmlElement {
      */
     public getFieldValue(field: string): string {
         return this.fields.get(field).html.value;
+    }
+
+    /**
+     * The value associated with a boolean (checkbox) field.
+     * @param {string} field  Field name whose value is sought.
+     * @returns {boolean}  True if the field is checked.
+     */
+    public getBooleanValue(field: string): boolean {
+        return (<HTMLInputElement>this.fields.get(field).html).checked;
+    }
+
+    /**
+     * Set the value of a field in the dialog.
+     * @param {string} field  Field whose value is set.
+     * @param {string} value  Value that is being set.
+     */
+    public setFieldValue(field: string, value: string): void {
+        this.fields.get(field).html.value = value;
     }
 
     /**

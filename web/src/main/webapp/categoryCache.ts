@@ -16,9 +16,10 @@
  */
 
 import {OnCompleteRenderer} from "./rpc";
-import {IDistinctStrings, DistinctStrings, RemoteTableObject} from "./tableData";
 import {ICancellable} from "./util";
 import {FullPage} from "./ui/fullPage";
+import {DistinctStrings, IDistinctStrings} from "./distinctStrings";
+import {RemoteTableObject} from "./tableTarget";
 
 /**
  * The CategoryCache is a singleton class that maintains a cache mapping column names
@@ -54,7 +55,7 @@ export class CategoryCache {
                 columnsToFetch.push(c);
         }
 
-        let rr = remoteTable.createRpcRequest("uniqueStrings", columnsToFetch);
+        let rr = remoteTable.createStreamingRpcRequest<IDistinctStrings[]>("uniqueStrings", columnsToFetch);
         if (columnsToFetch.length > 0) {
             let renderer = new ReceiveCategory(this, columnsToFetch, continuation, page, rr);
             rr.invoke(renderer);
@@ -72,7 +73,9 @@ export class CategoryCache {
     }
 }
 
-// Receives a list of DistinctStrings and stores them into a TableDataSet.
+/**
+ * Receives a list of DistinctStrings and stores them into a TableDataSet.
+  */
 class ReceiveCategory extends OnCompleteRenderer<IDistinctStrings[]> {
     public constructor(
         protected cache: CategoryCache,

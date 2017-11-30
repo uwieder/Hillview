@@ -16,6 +16,7 @@
  */
 
 import {IHtmlElement} from "./ui";
+import {makeId} from "../util";
 
 /**
  * One item in a menu.
@@ -24,11 +25,15 @@ export interface MenuItem {
     /**
      * Text that is written on screen when menu is displayed.
      */
-    text: string;
+    readonly text: string;
+    /**
+     * String that is displayed as a help popup.
+     */
+    readonly help: string;
     /**
      * Action that is executed when the item is selected by the user.
      */
-    action: () => void;
+    readonly action: () => void;
 }
 
 /**
@@ -41,9 +46,10 @@ export class ContextMenu implements IHtmlElement {
 
     /**
      * Create a context menu.
+     * @oaran parent            HTML element where this is inserted.
      * @param {MenuItem[]} mis  List of menu items in the context menu.
      */
-    constructor(mis?: MenuItem[]) {
+    constructor(parent: HTMLElement, mis?: MenuItem[]) {
         this.outer = document.createElement("table");
         this.outer.classList.add("dropdown");
         this.outer.classList.add("menu");
@@ -55,13 +61,17 @@ export class ContextMenu implements IHtmlElement {
             for (let mi of mis)
                 this.addItem(mi);
         }
+        parent.appendChild(this.getHTMLRepresentation());
         this.hide();
     }
 
     /**
      * Display the menu.
      */
-    public show(): void {
+    public show(e: MouseEvent): void {
+        e.preventDefault();
+        // Spawn the menu at the mouse's location
+        this.move(e.pageX - 1, e.pageY - 1);
         this.outer.hidden = false;
     }
 
@@ -85,7 +95,7 @@ export class ContextMenu implements IHtmlElement {
      * @param {number} x  Absolute x coordinate.
      * @param {number} y  Absolute y coordinate.
      */
-    public move(x: number, y: number): void {
+    move(x: number, y: number): void {
         this.outer.style.transform = `translate(${x}px, ${y}px)`;
     }
 
@@ -94,8 +104,11 @@ export class ContextMenu implements IHtmlElement {
         let trow = this.tableBody.insertRow();
         let cell = trow.insertCell(0);
         cell.innerHTML = mi.text;
+        if (mi.help != null)
+            cell.title = mi.help;
         cell.style.textAlign = "left";
         cell.className = "menuItem";
+        cell.id = makeId(mi.text);
         if (mi.action != null)
             cell.onclick = () => { this.hide(); mi.action(); };
         else
@@ -133,6 +146,7 @@ export class SubMenu implements IHtmlElement {
         this.cells = [];
         this.outer = document.createElement("table");
         this.outer.classList.add("menu", "hidden");
+        this.outer.id = "topMenu";
         this.tableBody = this.outer.createTBody();
         if (mis != null) {
             for (let mi of mis)
@@ -149,7 +163,10 @@ export class SubMenu implements IHtmlElement {
             cell.innerHTML = "<hr>";
         else
             cell.innerHTML = mi.text;
+        cell.id = makeId(mi.text);
         cell.style.textAlign = "left";
+        if (mi.help != null)
+            cell.title = mi.help;
         cell.classList.add("menuItem");
         if (mi.action != null)
             cell.onclick = (e: MouseEvent) => { e.stopPropagation(); this.hide(); mi.action(); }
@@ -173,7 +190,7 @@ export class SubMenu implements IHtmlElement {
      */
     find(text: string): number {
         for (let i=0; i < this.items.length; i++)
-            if (this.items[i].text === text)
+            if (this.items[i].text == text)
                 return i;
         return -1;
     }
@@ -207,6 +224,7 @@ export class SubMenu implements IHtmlElement {
 export interface TopMenuItem {
     readonly text: string;
     readonly subMenu: SubMenu;
+    readonly help: string;
 }
 
 /**
@@ -240,10 +258,13 @@ export class TopMenu implements IHtmlElement {
 
     addItem(mi: TopMenuItem): void {
         let cell = this.tableBody.rows.item(0).insertCell();
+        cell.id = makeId(mi.text);  // for testing
         cell.textContent = mi.text;
         cell.appendChild(mi.subMenu.getHTMLRepresentation());
         cell.onclick = () => {this.hideSubMenus(); mi.subMenu.show()};
         cell.onmouseleave = () => this.hideSubMenus();
+        if (mi.help != null)
+            cell.title = mi.help;
         this.items.push(mi);
     }
 
@@ -257,7 +278,7 @@ export class TopMenu implements IHtmlElement {
      */
     getSubmenu(text: string): SubMenu {
         for (let i=0; i < this.items.length; i++)
-            if (this.items[i].text === text)
+            if (this.items[i].text == text)
                 return this.items[i].subMenu;
         return null;
     }

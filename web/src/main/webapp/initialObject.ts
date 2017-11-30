@@ -16,67 +16,82 @@
  */
 
 import {RemoteObject, OnCompleteRenderer} from "./rpc";
-import {RemoteTableReceiver} from "./table";
+import {RemoteTableReceiver} from "./dataViews/tableView";
 import {FullPage} from "./ui/fullPage";
 import {ICancellable} from "./util";
+import {CSVFilesDescription, JdbcConnectionInformation, RemoteObjectId} from "./javaBridge";
 
-class FileNamesReceiver extends OnCompleteRenderer<string> {
-    constructor(page: FullPage, operation: ICancellable) {
+/**
+ * A renderer which receives a remote object id that denotes a set of files.
+ * It initiates a loadTable RPC request to load data from these files as a table.
+ */
+class FileNamesReceiver extends OnCompleteRenderer<RemoteObjectId> {
+    constructor(page: FullPage, operation: ICancellable, protected title: string) {
         super(page, operation, "Find files");
     }
 
-    public run(remoteObjId: string): void {
+    public run(remoteObjId: RemoteObjectId): void {
         let fn = new RemoteObject(remoteObjId);
-        let rr = fn.createRpcRequest("loadTable", null);
+        let rr = fn.createStreamingRpcRequest<RemoteObjectId>("loadTable", null);
         rr.chain(this.operation);
-        let observer = new RemoteTableReceiver(this.page, rr);
+        let observer = new RemoteTableReceiver(this.page, rr, this.title, false);
         rr.invoke(observer);
     }
 }
 
+/**
+ * This is the first object created that refers to a remote object.
+ */
 export class InitialObject extends RemoteObject {
     public static instance: InitialObject = new InitialObject();
 
-    // The "0" argument is the object id for the initial object.
-    // It must match the id of the object declared in RpcServer.java.
-    // This is a "well-known" name used for bootstrapping the system.
     // noinspection JSUnusedLocalSymbols
-    private constructor() { super("0"); }
+    private constructor() {
+        // The "0" argument is the object id for the initial object.
+        // It must match the id of the object declared in RpcServer.java.
+        // This is a "well-known" name used for bootstrapping the system.
+        // noinspection JSUnusedLocalSymbols
+        super("0");
+    }
 
-    public loadFiles(which: number): void {
-        let rr = this.createRpcRequest("prepareFiles", which);
-        let page = new FullPage("CSV Files", "Table");
-        page.append();
-        let observer = new FileNamesReceiver(page, rr);
+    public testDataset(which: number, menuPage: FullPage): void {
+        let rr = this.createStreamingRpcRequest<RemoteObjectId>("testDataset", which);
+        let observer = new FileNamesReceiver(menuPage, rr, "Test data set");
         rr.invoke(observer);
     }
 
-    public loadLogs(): void {
-        let rr = this.createRpcRequest("findLogs", null);
-        let page = new FullPage("Hillview logs", "Table");
-        page.append();
-        let observer = new LogFileReceiver(page, rr);
+    public loadCSVFiles(files: CSVFilesDescription, menuPage: FullPage): void {
+        let rr = this.createStreamingRpcRequest<RemoteObjectId>("findCSVFiles", files);
+        let observer = new FileNamesReceiver(menuPage, rr, files.fileNamePattern);
         rr.invoke(observer);
     }
 
-    public loadDBTable(): void {
-        let rr = this.createRpcRequest("loadDBTable", null);
-        let page = new FullPage("Database table", "Table");
-        page.append();
-        let observer = new RemoteTableReceiver(page, rr);
+    public loadLogs(menuPage: FullPage): void {
+        let rr = this.createStreamingRpcRequest<RemoteObjectId>("findLogs", null);
+        let observer = new LogFileReceiver(menuPage, rr, "Hillview logs");
+        rr.invoke(observer);
+    }
+
+    public loadDBTable(conn: JdbcConnectionInformation, menuPage: FullPage): void {
+        let rr = this.createStreamingRpcRequest<RemoteObjectId>("loadDBTable", conn);
+        let title = "DB " + conn.database + ":" + conn.table;
+        let observer = new RemoteTableReceiver(menuPage, rr, title, false);
         rr.invoke(observer);
     }
 }
 
-class LogFileReceiver extends OnCompleteRenderer<string> {
-    constructor(page: FullPage, operation: ICancellable) {
+/**
+ * Receives and displays the Hillview system logs as a tabular view.
+ */
+class LogFileReceiver extends OnCompleteRenderer<RemoteObjectId> {
+    constructor(page: FullPage, operation: ICancellable, protected title: string) {
         super(page, operation, "Find logs");
     }
 
-    public run(objId: string): void {
+    public run(objId: RemoteObjectId): void {
         let fn = new RemoteObject(objId);
-        let rr = fn.createRpcRequest("loadTable", null);
-        let observer = new RemoteTableReceiver(this.page, rr);
+        let rr = fn.createStreamingRpcRequest<string>("loadTable", null);
+        let observer = new RemoteTableReceiver(this.page, rr, this.title, false);
         rr.invoke(observer);
     }
 }
